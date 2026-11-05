@@ -7,9 +7,9 @@
   const healthEl = document.getElementById('base-health');
   const waveEl = document.getElementById('wave-tag');
   const hintEl = document.getElementById('hint');
-  const upgrades = { fireCost: 500, damageCost: 1000, autoCost: 2500, autoUnlocked: false, fireDelay: .15, damage: 10, sentries: [], airstrikeReadyAt: 0 };
+  const upgrades = { fireCost: 500, damageCost: 1000, healUnlocked: false, autoCost: 2500, autoUnlocked: false, fireDelay: .15, damage: 10, sentries: [], airstrikeReadyAt: 0 };
 
-  const state = { w: 0, h: 0, dpr: 1, running: false, over: false, score: 0, currency: 0, health: 100, gunY: 0, mouse: { x: 0, y: 0 }, keys: new Set(), mouseDown: false, enemies: [], bullets: [], particles: [], last: 0, spawn: 0, elapsed: 0, shotCooldown: 0, flash: 0, freezeUntil: 0 };
+  const state = { w: 0, h: 0, dpr: 1, running: false, paused: false, over: false, reviveUsed: false, score: 0, currency: 0, health: 100, healAccumulator: 0, gunY: 0, mouse: { x: 0, y: 0 }, keys: new Set(), mouseDown: false, enemies: [], bullets: [], particles: [], last: 0, spawn: 0, elapsed: 0, shotCooldown: 0, flash: 0, freezeUntil: 0, lastBossWave: 0 };
   const rand = (a, b) => a + Math.random() * (b - a);
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
@@ -32,7 +32,18 @@
   function addEnemy() {
     const slime = Math.random() < .57;
     const size = rand(15, 23);
-    state.enemies.push({ x: state.w + size + 5, y: rand(60, state.h - 45), baseY: rand(60, state.h - 45), r: size, hp: slime ? 24 : 38, maxHp: slime ? 24 : 38, speed: rand(22, 36) + Math.min(state.elapsed * .35, 25), phase: rand(0, Math.PI * 2), freq: slime ? rand(2.4, 3.7) : rand(.7, 1.2), amp: slime ? rand(24, 65) : rand(9, 23), type: slime ? 'slime' : 'zombie', tint: Math.random() < .5 ? 0 : 1 });
+    const baseHp = slime ? 24 : 38;
+    const scaledHp = baseHp * waveHealthMultiplier();
+    state.enemies.push({ x: state.w + size + 5, y: rand(60, state.h - 45), baseY: rand(60, state.h - 45), r: size, hp: scaledHp, maxHp: scaledHp, speed: rand(22, 36) + Math.min(state.elapsed * .35, 25), phase: rand(0, Math.PI * 2), freq: slime ? rand(2.4, 3.7) : rand(.7, 1.2), amp: slime ? rand(24, 65) : rand(9, 23), type: slime ? 'slime' : 'zombie', tint: Math.random() < .5 ? 0 : 1 });
+  }
+
+  function currentWave() { return Math.floor(state.elapsed / 30) + 1; }
+  function waveHealthMultiplier() { return 1.1 ** (currentWave() - 1); }
+  function addBoss(wave) {
+    const baseHp = 250;
+    const scaledHp = baseHp * 1.1 ** (wave - 1);
+    state.enemies.push({ x: state.w + 65, y: state.h * .5, baseY: state.h * .5, r: 42, hp: scaledHp, maxHp: scaledHp, speed: 19 + wave * 1.2, phase: rand(0, Math.PI * 2), freq: 1.15, amp: Math.min(state.h * .19, 75), type: 'boss', tint: 0 });
+    burst(state.w - 28, state.h * .5, '#ff7868', 20);
   }
 
   function fire() {
@@ -68,6 +79,10 @@
     if (upgrades.autoUnlocked || !purchase(upgrades.autoCost)) return;
     upgrades.autoUnlocked = true; triggerUpgradeFlash('TRIGGER LOCK', 'HOLD-TO-FIRE ENABLED');
   });
+  document.getElementById('heal-upgrade').addEventListener('click', () => {
+    if (upgrades.healUnlocked || !purchase(1000)) return;
+    upgrades.healUnlocked = true; triggerUpgradeFlash('REPAIR MATRIX', 'BASE REGENERATES 1% HEALTH PER SECOND');
+  });
   document.getElementById('sentry-upgrade').addEventListener('click', () => {
     if (upgrades.sentries.length >= 2 || !purchase(250)) return;
     const slot = upgrades.sentries.length;
@@ -92,16 +107,26 @@
   });
   window.addEventListener('keyup', (e) => state.keys.delete(e.key.toLowerCase()));
   window.addEventListener('blur', () => state.keys.clear());
+  const pauseButton = document.getElementById('pause-button');
+  pauseButton.addEventListener('click', () => {
+    if (!state.running || state.over) return;
+    state.paused = !state.paused; state.last = performance.now(); updatePauseUI();
+  });
   document.getElementById('start-button').addEventListener('click', () => {
     if (state.over) reset();
-    state.running = true; overlay.classList.add('hidden'); hintEl.style.display = 'block'; state.last = performance.now(); requestAnimationFrame(frame);
+    state.running = true; state.paused = false; overlay.classList.add('hidden'); hintEl.style.display = 'block'; state.last = performance.now(); updatePauseUI(); requestAnimationFrame(frame);
+  });
+  document.getElementById('revive-button').addEventListener('click', () => {
+    if (!state.over || state.reviveUsed || state.currency < 5000) return;
+    state.currency -= 5000; state.health = 50; state.reviveUsed = true; state.over = false; state.running = true; state.paused = false;
+    overlay.classList.add('hidden'); hintEl.style.display = 'block'; state.last = performance.now(); updateUI(); updatePauseUI(); requestAnimationFrame(frame);
   });
   hintEl.style.display = 'none';
   window.addEventListener('resize', resize);
 
   function reset() {
-    Object.assign(state, { score: 0, currency: 0, health: 100, enemies: [], bullets: [], particles: [], elapsed: 0, spawn: 0, over: false, mouseDown: false });
-    Object.assign(upgrades, { fireCost: 500, damageCost: 1000, autoCost: 2500, autoUnlocked: false, fireDelay: .15, damage: 10, sentries: [], airstrikeReadyAt: 0 });
+    Object.assign(state, { score: 0, currency: 0, health: 100, healAccumulator: 0, enemies: [], bullets: [], particles: [], elapsed: 0, over: false, paused: false, reviveUsed: false, mouseDown: false, lastBossWave: 0, freezeUntil: 0 });
+    Object.assign(upgrades, { fireCost: 500, damageCost: 1000, healUnlocked: false, autoCost: 2500, autoUnlocked: false, fireDelay: .15, damage: 10, sentries: [], airstrikeReadyAt: 0 });
     updateUI(); overlay.querySelector('h1').textContent = 'Hold the line.';
     overlay.querySelector('.intro-card p').innerHTML = 'A / ↑ and D / ↓ move the gun.<br />Aim with your cursor. Click to fire.';
     document.getElementById('start-button').innerHTML = 'START DEFENDING <span>→</span>'; updateUI();
@@ -110,29 +135,55 @@
   function updateUI() {
     scoreEl.textContent = state.score.toLocaleString(); currencyEl.textContent = state.currency.toLocaleString(); healthEl.textContent = `${state.health}%`;
     healthEl.style.color = state.health <= 35 ? '#ff806a' : '';
-    const wave = Math.floor(state.elapsed / 30) + 1; waveEl.innerHTML = `WAVE ${String(wave).padStart(2, '0')} <span>·</span> ${wave === 1 ? 'FIRST CONTACT' : 'PRESSURE RISING'}`;
+    const wave = currentWave();
+    const waveLabel = wave % 5 === 0 ? 'BOSS WAVE' : wave === 1 ? 'FIRST CONTACT' : 'PRESSURE RISING';
+    waveEl.innerHTML = `WAVE ${String(wave).padStart(2, '0')} <span>·</span> ${waveLabel}`;
     const canShop = state.freezeUntil <= performance.now();
     const setCard = (id, enabled, priceText) => { const el = document.getElementById(id); el.disabled = !enabled || !canShop; if (priceText) el.querySelector('.upgrade-price').textContent = priceText; };
     document.getElementById('fire-price').textContent = `${upgrades.fireCost.toLocaleString()} ✦`;
     document.getElementById('damage-price').textContent = `${upgrades.damageCost.toLocaleString()} ✦`;
     setCard('fire-upgrade', state.currency >= upgrades.fireCost, `${upgrades.fireCost.toLocaleString()} ✦`);
     setCard('damage-upgrade', state.currency >= upgrades.damageCost, `${upgrades.damageCost.toLocaleString()} ✦`);
+    setCard('heal-upgrade', !upgrades.healUnlocked && state.currency >= 1000, upgrades.healUnlocked ? 'OWNED' : '1,000 ✦');
     setCard('auto-upgrade', !upgrades.autoUnlocked && state.currency >= upgrades.autoCost, upgrades.autoUnlocked ? 'UNLOCKED' : `${upgrades.autoCost.toLocaleString()} ✦`);
     document.getElementById('sentry-count').textContent = `${upgrades.sentries.length}/2`;
     setCard('sentry-upgrade', upgrades.sentries.length < 2 && state.currency >= 250, upgrades.sentries.length >= 2 ? 'MAX ACTIVE' : '250 ✦');
     const airReady = upgrades.airstrikeReadyAt <= state.elapsed;
     const remaining = Math.ceil(upgrades.airstrikeReadyAt - state.elapsed);
     setCard('airstrike-upgrade', airReady && state.currency >= 3000, airReady ? '3,000 ✦' : `${Math.floor(remaining / 60)}:${String(remaining % 60).padStart(2, '0')}`);
+    const reviveButton = document.getElementById('revive-button');
+    reviveButton.hidden = !state.over;
+    reviveButton.disabled = state.reviveUsed || state.currency < 5000;
+    reviveButton.textContent = state.reviveUsed ? 'REVIVE USED THIS MATCH' : state.currency < 5000 ? 'REVIVE · NEED 5,000 ✦' : 'REVIVE · 5,000 ✦';
     hintEl.innerHTML = upgrades.autoUnlocked ? 'A / ↑ UP <span>•</span> D / ↓ DOWN <span>•</span> HOLD CLICK TO FIRE' : 'A / ↑ UP <span>•</span> D / ↓ DOWN <span>•</span> CLICK TO FIRE';
+    updatePauseUI();
+  }
+
+  function updatePauseUI() {
+    pauseButton.disabled = !state.running || state.over;
+    pauseButton.innerHTML = state.paused ? '▶ <span>RESUME</span>' : 'Ⅱ <span>PAUSE</span>';
+    pauseButton.setAttribute('aria-label', state.paused ? 'Resume game' : 'Pause game');
+    document.getElementById('pause-overlay').classList.toggle('show', state.paused && state.running);
   }
 
   function awardDamage(amount) { if (amount <= 0) return; const credit = Math.floor(amount); state.score += credit; state.currency += credit; }
 
   function frame(now) {
     if (!state.running) return;
+    if (state.paused) {
+      state.last = now;
+      if (state.freezeUntil && now >= state.freezeUntil) { state.freezeUntil = 0; updateUI(); }
+      draw(); requestAnimationFrame(frame); return;
+    }
     if (state.freezeUntil > now) { state.last = now; draw(); requestAnimationFrame(frame); return; }
     if (state.freezeUntil) { state.freezeUntil = 0; updateUI(); }
     const dt = Math.min((now - state.last) / 1000 || 0, .033); state.last = now; state.elapsed += dt;
+    if (upgrades.healUnlocked) {
+      state.healAccumulator += dt;
+      while (state.healAccumulator >= 1) { state.health = Math.min(100, state.health + 1); state.healAccumulator -= 1; }
+    }
+    const wave = currentWave();
+    if (wave % 5 === 0 && state.lastBossWave !== wave) { addBoss(wave); state.lastBossWave = wave; }
     const up = state.keys.has('a') || state.keys.has('arrowup');
     const down = state.keys.has('d') || state.keys.has('arrowdown');
     state.gunY = clamp(state.gunY + ((down ? 1 : 0) - (up ? 1 : 0)) * 300 * dt, 32, state.h - 32);
@@ -165,7 +216,7 @@
       }
     }
     upgrades.sentries = upgrades.sentries.filter(s => s.life > 0);
-    state.enemies = state.enemies.filter(en => { if (en.hp <= 0) return false; if (en.x < 22) { state.health = Math.max(0, state.health - (en.type === 'zombie' ? 14 : 9)); return false; } return true; });
+    state.enemies = state.enemies.filter(en => { if (en.hp <= 0) return false; if (en.x < 22 + en.r) { state.health = Math.max(0, state.health - (en.type === 'boss' ? 30 : en.type === 'zombie' ? 14 : 9)); return false; } return true; });
     for (const p of state.particles) { p.x += p.vx * dt; p.y += p.vy * dt; p.life -= dt; p.vx *= .96; p.vy *= .96; }
     state.particles = state.particles.filter(p => p.life > 0);
     updateUI(); draw();
@@ -203,6 +254,15 @@
       const c = en.tint ? '#a8d879' : '#80c878'; ctx.shadowColor = c; ctx.shadowBlur = 16;
       ctx.fillStyle = c; ctx.beginPath(); ctx.moveTo(-r, r * .38); ctx.quadraticCurveTo(-r * .95, -r * .65, -r * .25, -r * .58); ctx.quadraticCurveTo(r * .05, -r * 1.05, r * .32, -r * .52); ctx.quadraticCurveTo(r * 1.05, -r * .4, r, r * .38); ctx.quadraticCurveTo(0, r * .82, -r, r * .38); ctx.fill(); ctx.shadowBlur = 0;
       ctx.fillStyle = '#203322'; ctx.beginPath(); ctx.arc(-r * .34, 0, 2.2, 0, 7); ctx.arc(r * .34, 0, 2.2, 0, 7); ctx.fill();
+    } else if (en.type === 'boss') {
+      const pulse = 1 + Math.sin(state.elapsed * 3) * .04;
+      ctx.scale(pulse, pulse);
+      ctx.shadowColor = '#ff665b'; ctx.shadowBlur = 22; ctx.fillStyle = '#983f42';
+      ctx.beginPath(); ctx.ellipse(0, 0, r * .88, r * .78, 0, 0, Math.PI * 2); ctx.fill(); ctx.shadowBlur = 0;
+      ctx.fillStyle = '#d77862'; ctx.beginPath(); ctx.arc(0, -r * .15, r * .47, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#5b2931'; ctx.beginPath(); ctx.moveTo(-r * .32, -r * .49); ctx.lineTo(-r * .57, -r * .94); ctx.lineTo(-r * .05, -r * .62); ctx.fill(); ctx.beginPath(); ctx.moveTo(r * .32, -r * .49); ctx.lineTo(r * .57, -r * .94); ctx.lineTo(r * .05, -r * .62); ctx.fill();
+      ctx.fillStyle = '#f5c46f'; ctx.beginPath(); ctx.arc(-r * .18, -r * .18, 3.5, 0, Math.PI * 2); ctx.arc(r * .18, -r * .18, 3.5, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = '#351c24'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(-r * .22, r * .18); ctx.lineTo(-r * .1, r * .3); ctx.lineTo(0, r * .18); ctx.lineTo(r * .1, r * .3); ctx.lineTo(r * .22, r * .18); ctx.stroke();
     } else {
       ctx.shadowColor = '#d78168'; ctx.shadowBlur = 12; ctx.fillStyle = '#c67864'; ctx.beginPath(); ctx.arc(0, -r * .34, r * .42, 0, 7); ctx.fill(); ctx.shadowBlur = 0;
       ctx.fillStyle = '#6d5144'; ctx.beginPath(); ctx.roundRect(-r * .58, -r * .08, r * 1.16, r * 1.18, r * .35); ctx.fill();
@@ -210,7 +270,9 @@
       ctx.strokeStyle = '#332d27'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(-r * .19, -r * .12); ctx.lineTo(r * .2, -r * .12); ctx.stroke();
     }
     ctx.restore();
-    const bw = r * 1.65, bh = 3; ctx.fillStyle = '#111710'; ctx.fillRect(x - bw / 2, y - r - 10, bw, bh); ctx.fillStyle = en.hp / en.maxHp > .5 ? '#c5f36b' : '#f08b71'; ctx.fillRect(x - bw / 2, y - r - 10, bw * clamp(en.hp / en.maxHp, 0, 1), bh);
+    const bw = en.type === 'boss' ? 92 : r * 1.65, bh = en.type === 'boss' ? 5 : 3, barY = y - r - (en.type === 'boss' ? 16 : 10);
+    if (en.type === 'boss') { ctx.fillStyle = '#fff0d6'; ctx.font = '9px DM Mono, monospace'; ctx.textAlign = 'center'; ctx.fillText('WAVE BOSS', x, barY - 5); }
+    ctx.fillStyle = '#111710'; ctx.fillRect(x - bw / 2, barY, bw, bh); ctx.fillStyle = en.type === 'boss' ? '#ff7768' : en.hp / en.maxHp > .5 ? '#c5f36b' : '#f08b71'; ctx.fillRect(x - bw / 2, barY, bw * clamp(en.hp / en.maxHp, 0, 1), bh);
   }
 
   function drawGun() {
@@ -233,10 +295,10 @@
   function drawCrosshair() { const { x, y } = state.mouse; ctx.save(); ctx.strokeStyle = 'rgba(225,245,196,.8)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(x, y, 8, 0, 7); ctx.moveTo(x - 13, y); ctx.lineTo(x - 5, y); ctx.moveTo(x + 5, y); ctx.lineTo(x + 13, y); ctx.moveTo(x, y - 13); ctx.lineTo(x, y - 5); ctx.moveTo(x, y + 5); ctx.lineTo(x, y + 13); ctx.stroke(); ctx.restore(); }
 
   function endGame() {
-    state.running = false; state.over = true; hintEl.style.display = 'none';
+    state.running = false; state.paused = false; state.over = true; hintEl.style.display = 'none';
     overlay.querySelector('h1').textContent = 'Line breached.';
     overlay.querySelector('.intro-card p').innerHTML = `You held out for ${Math.floor(state.elapsed)} seconds.<br />${state.score} damage dealt · ${state.currency} credits earned`;
-    document.getElementById('start-button').innerHTML = 'TRY AGAIN <span>↻</span>'; overlay.classList.remove('hidden');
+    document.getElementById('start-button').innerHTML = 'TRY AGAIN <span>↻</span>'; overlay.classList.remove('hidden'); updateUI();
   }
 
   resize(); updateUI(); draw();

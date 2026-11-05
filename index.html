@@ -10,6 +10,7 @@
     <main class="game-shell">
       <header class="topbar">
         <div class="brand"><span class="brand-mark">✦</span><span>LANE DEFENSE</span></div>
+        <button class="pause-button" id="pause-button" disabled aria-label="Pause game">Ⅱ <span>PAUSE</span></button>
         <div class="stats" aria-live="polite">
           <div class="stat"><span class="stat-label">SCORE</span><strong id="score">0</strong></div>
           <div class="stat currency"><span class="stat-label">CREDITS</span><strong id="currency">0</strong></div>
@@ -24,6 +25,7 @@
             <h1>Hold the line.</h1>
             <p>A / ↑ and D / ↓ move the gun.<br />Aim with your cursor. Click to fire.</p>
             <button id="start-button">START DEFENDING <span>→</span></button>
+            <button id="revive-button" class="revive-button" hidden>REVIVE · 5,000 ✦</button>
             <div class="reward-note"><span>✦</span> +1 score &amp; credit for every point of damage</div>
           </div>
         </div>
@@ -34,6 +36,7 @@
           <strong id="upgrade-flash-title">READY</strong>
           <span class="flash-detail" id="upgrade-flash-detail"></span>
         </div>
+        <div class="pause-overlay" id="pause-overlay" aria-live="polite"><span>TACTICAL PAUSE</span><strong>Spend your credits.</strong><small>Game time and timers are paused</small></div>
       </section>
       <section class="upgrade-shop" aria-label="Upgrades">
         <div class="shop-heading"><div><span class="eyebrow">FIELD UPGRADES</span><h2>Spend your credits.</h2></div><div class="shop-note">Damage dealt earns credits <span>✦</span></div></div>
@@ -41,6 +44,7 @@
           <button class="upgrade-card" id="fire-upgrade"><span class="upgrade-icon">⟳</span><span class="upgrade-copy"><strong>QUICKER CYCLE</strong><small>Fire 15% faster · next price scales 1.5×</small></span><span class="upgrade-price" id="fire-price">500 ✦</span></button>
           <button class="upgrade-card" id="damage-upgrade"><span class="upgrade-icon">✹</span><span class="upgrade-copy"><strong>HEAVY ROUNDS</strong><small>Increase player damage by 50% · price scales 1.75×</small></span><span class="upgrade-price" id="damage-price">1,000 ✦</span></button>
           <button class="upgrade-card" id="auto-upgrade"><span class="upgrade-icon">⌁</span><span class="upgrade-copy"><strong>TRIGGER LOCK</strong><small>Unlock hold-to-fire</small></span><span class="upgrade-price" id="auto-price">2,500 ✦</span></button>
+          <button class="upgrade-card" id="heal-upgrade"><span class="upgrade-icon">✚</span><span class="upgrade-copy"><strong>REPAIR MATRIX</strong><small>Restore 1% base health every second</small></span><span class="upgrade-price" id="heal-price">1,000 ✦</span></button>
           <button class="upgrade-card" id="sentry-upgrade"><span class="upgrade-icon">⊙</span><span class="upgrade-copy"><strong>POCKET SENTRY <i id="sentry-count">0/2</i></strong><small>Half base damage · 30 seconds · max 2</small></span><span class="upgrade-price">250 ✦</span></button>
           <button class="upgrade-card airstrike-card" id="airstrike-upgrade"><span class="upgrade-icon">✷</span><span class="upgrade-copy"><strong>AIRSTRIKE</strong><small>100 damage to every enemy · 2 min cooldown</small></span><span class="upgrade-price" id="airstrike-price">3,000 ✦</span></button>
         </div>
