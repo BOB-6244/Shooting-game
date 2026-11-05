@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Cursor-Aimed Defense</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <main class="game-shell">
+      <header class="topbar">
+        <div class="brand"><span class="brand-mark">✦</span><span>LANE DEFENSE</span></div>
+        <div class="stats" aria-live="polite">
+          <div class="stat"><span class="stat-label">SCORE</span><strong id="score">0</strong></div>
+          <div class="stat currency"><span class="stat-label">CREDITS</span><strong id="currency">0</strong></div>
+          <div class="stat"><span class="stat-label">BASE</span><strong id="base-health">100%</strong></div>
+        </div>
+      </header>
+      <section class="arena-wrap" aria-label="Game arena">
+        <canvas id="game" aria-label="Move your mouse to aim and click to fire"></canvas>
+        <div class="overlay" id="overlay">
+          <div class="intro-card">
+            <div class="eyebrow">A LITTLE SOMETHING IS CREEPING IN</div>
+            <h1>Hold the line.</h1>
+            <p>A / ↑ and D / ↓ move the gun.<br />Aim with your cursor. Click to fire.</p>
+            <button id="start-button">START DEFENDING <span>→</span></button>
+            <div class="reward-note"><span>✦</span> +1 score &amp; credit for every point of damage</div>
+          </div>
+        </div>
+        <div class="wave-tag" id="wave-tag">WAVE 01 <span>·</span> FIRST CONTACT</div>
+        <div class="hint" id="hint">A / ↑ UP <span>•</span> D / ↓ DOWN <span>•</span> CLICK TO FIRE</div>
+        <div class="upgrade-flash" id="upgrade-flash" aria-live="assertive" aria-atomic="true">
+          <span class="flash-kicker">SYSTEM UPGRADE</span>
+          <strong id="upgrade-flash-title">READY</strong>
+          <span class="flash-detail" id="upgrade-flash-detail"></span>
+        </div>
+      </section>
+      <section class="upgrade-shop" aria-label="Upgrades">
+        <div class="shop-heading"><div><span class="eyebrow">FIELD UPGRADES</span><h2>Spend your credits.</h2></div><div class="shop-note">Damage dealt earns credits <span>✦</span></div></div>
+        <div class="upgrade-grid">
+          <button class="upgrade-card" id="fire-upgrade"><span class="upgrade-icon">⟳</span><span class="upgrade-copy"><strong>QUICKER CYCLE</strong><small>Fire 15% faster · next price scales 1.5×</small></span><span class="upgrade-price" id="fire-price">500 ✦</span></button>
+          <button class="upgrade-card" id="damage-upgrade"><span class="upgrade-icon">✹</span><span class="upgrade-copy"><strong>HEAVY ROUNDS</strong><small>Increase player damage by 50% · price scales 1.75×</small></span><span class="upgrade-price" id="damage-price">1,000 ✦</span></button>
+          <button class="upgrade-card" id="auto-upgrade"><span class="upgrade-icon">⌁</span><span class="upgrade-copy"><strong>TRIGGER LOCK</strong><small>Unlock hold-to-fire</small></span><span class="upgrade-price" id="auto-price">2,500 ✦</span></button>
+          <button class="upgrade-card" id="sentry-upgrade"><span class="upgrade-icon">⊙</span><span class="upgrade-copy"><strong>POCKET SENTRY <i id="sentry-count">0/2</i></strong><small>Half base damage · 30 seconds · max 2</small></span><span class="upgrade-price">250 ✦</span></button>
+          <button class="upgrade-card airstrike-card" id="airstrike-upgrade"><span class="upgrade-icon">✷</span><span class="upgrade-copy"><strong>AIRSTRIKE</strong><small>100 damage to every enemy · 2 min cooldown</small></span><span class="upgrade-price" id="airstrike-price">3,000 ✦</span></button>
+        </div>
+      </section>
+      <footer><span>DEFENSE SYSTEMS ONLINE</span><span>STAY SHARP <b>✦</b></span></footer>
+    </main>
+    <script src="game.js"></script>
+  </body>
+</html>
