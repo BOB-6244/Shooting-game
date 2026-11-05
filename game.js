@@ -189,7 +189,8 @@
     state.gunY = clamp(state.gunY + ((down ? 1 : 0) - (up ? 1 : 0)) * 300 * dt, 32, state.h - 32);
     if (state.mouseDown && upgrades.autoUnlocked) fire();
     state.spawn -= dt; state.shotCooldown -= dt; state.flash = Math.max(0, state.flash - dt * 2.5);
-    const interval = Math.max(.45, 1.55 - state.elapsed * .008);
+    // Give the player breathing room early; spawn pace ramps up in later waves.
+    const interval = Math.max(.8, 3.2 - (currentWave() - 1) * .38);
     if (state.spawn <= 0) { addEnemy(); state.spawn = interval * rand(.65, 1.2); }
     for (const b of state.bullets) { b.x += b.vx * dt; b.y += b.vy * dt; b.life -= dt; }
     state.bullets = state.bullets.filter(b => b.life > 0 && b.x < state.w + 20 && b.y > -20 && b.y < state.h + 20);
